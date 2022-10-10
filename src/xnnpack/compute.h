@@ -256,9 +256,25 @@ struct spmm_context {
   } params;
 };
 
+
+// Context for Sparse Matrix-Dense Matrix Multiplication using Nano Kernels.
+// C [MxN] := A [MxK] * B [KxN] + bias [N]
+// A and C are dense matrices with row-major storage, B is a sparse matrix.
+struct spmm_nano_context {
+  void* executor;
+};
+
 #ifndef __cplusplus
   XNN_PRIVATE void xnn_compute_spmm(
     const struct spmm_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t batch_index,
+    size_t mr_block_start,
+    size_t mr_block_size);
+#endif
+
+#ifndef __cplusplus
+  XNN_PRIVATE void xnn_compute_spmm_nano(
+    const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t batch_index,
     size_t mr_block_start,
     size_t mr_block_size);

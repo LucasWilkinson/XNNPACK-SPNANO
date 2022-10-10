@@ -75,6 +75,9 @@ extern "C" {
 /// Yield worker threads of the thread pool to the system scheduler after the inference.
 #define XNN_FLAG_YIELD_WORKERS 0x00000010
 
+/// The operator assumes NHWC layout for the input, regardless of the output layout.
+#define XNN_FLAG_USE_SPNANO 0x10000000
+
 /// Status code for any XNNPACK function call.
 enum xnn_status {
   /// The call succeeded, and all output arguments now contain valid data.

@@ -69,6 +69,11 @@ struct xnn_ukernel_spmm {
   uint8_t mr;
 };
 
+struct xnn_ukernel_spmm_nano {
+  void* matrix;
+  float* bias;
+};
+
 struct xnn_ukernel_vmulcaddc {
   xnn_vmulcaddc_ukernel_function function;
   uint8_t mr;
@@ -93,6 +98,7 @@ struct xnn_ukernel {
     struct xnn_ukernel_gemm gemm;
     struct xnn_ukernel_igemm igemm;
     struct xnn_ukernel_spmm spmm;
+    struct xnn_ukernel_spmm_nano spmm_nano;
     struct xnn_ukernel_vmulcaddc vmulcaddc;
     struct xnn_ukernel_vbinary vbinary;
     struct xnn_ukernel_vunary vunary;
@@ -288,6 +294,7 @@ struct xnn_operator {
     struct resize_bilinear_context resize_bilinear;
     struct resize_bilinear_chw_context resize_bilinear_chw;
     struct spmm_context spmm;
+    struct spmm_nano_context spmm_nano;
     struct subconv_context subconv;
     struct subgemm_context subgemm;
     struct transpose_context transpose;

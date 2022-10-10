@@ -341,6 +341,19 @@ void xnn_compute_gemm(
       context->fused_params);
 }
 
+void xnn_compute_spmm_nano(
+  const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)],
+  size_t batch_index,
+  size_t p_start,
+  size_t p_end)
+{
+  extern void spnano_run_thread(void* e, int p_tile, int thread_id);
+  for (int p = p_start; p < p_end; p++) {
+    spnano_run_thread(context->executor, p, 0); // TODO: Figure out how to findout the thread id
+  }
+}
+
+
 void xnn_compute_spmm(
     const struct spmm_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t batch_index,

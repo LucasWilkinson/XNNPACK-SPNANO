@@ -189,6 +189,8 @@ IF(XNNPACK_ENABLE_SPNANO AND XNNPACK_ENABLE_SPARSE)
   IF(XNNPACK_TARGET_PROCESSOR MATCHES "^(i[3-6]86|x86|x86_64|AMD64)$" OR IOS_ARCH MATCHES "^(i386|x86_64|AMD64)$")
     SET(ENABLE_AVX512 TRUE)
     SET(ENABLE_AVX2 TRUE)
+    ADD_COMPILE_DEFINITIONS("ENABLE_AVX512=1")
+    ADD_COMPILE_DEFINITIONS("ENABLE_AVX2=1")
   ENDIF()
 
   ADD_SUBDIRECTORY(third_party/spmm-nano-kernels)
@@ -212,6 +214,8 @@ IF(XNNPACK_ENABLE_SPNANO AND XNNPACK_ENABLE_SPARSE)
     # Required to be set for the headers to function properly
     ADD_COMPILE_DEFINITIONS(SPNANO_AVX=1)
   ENDIF()
+
+  INCLUDE_DIRECTORIES(${SPNANO_INCLUDE_DIRS})
 ENDIF()
 
 # ---[ XNNPACK library
@@ -224,7 +228,7 @@ SET(OPERATOR_SRCS
   src/operators/binary-elementwise-nd.c
   src/operators/channel-shuffle-nc.c
   src/operators/constant-pad-nd.c
-  src/operators/convolution-nchw.c
+        src/operators/convolution-nchw.c
   src/operators/convolution-nhwc.c
   src/operators/deconvolution-nhwc.c
   src/operators/fully-connected-nc.c
@@ -9575,6 +9579,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       models/fp16-mobilenet-v3-small.cc
       models/fp32-mobilenet-v3-small.cc
       models/fp32-sparse-mobilenet-v1.cc
+      models/fp32-sparse-mobilenet-v1-nano.cc
       models/fp32-sparse-mobilenet-v2.cc
       models/fp32-sparse-mobilenet-v3-large.cc
       models/fp32-sparse-mobilenet-v3-small.cc)
@@ -9582,9 +9587,10 @@ IF(XNNPACK_BUILD_BENCHMARKS)
     TARGET_INCLUDE_DIRECTORIES(bench-models PRIVATE .)
     TARGET_LINK_LIBRARIES(bench-models PRIVATE XNNPACK fp16 benchmark bench-utils)
 
-    ADD_EXECUTABLE(end2end-bench bench/end2end.cc)
+    ADD_EXECUTABLE(end2end-bench bench/end2end.cc src/spnano_wrapper.cc)
+    TARGET_COMPILE_OPTIONS(end2end-bench PRIVATE -mavx512f -mavx512vl)
     TARGET_INCLUDE_DIRECTORIES(end2end-bench PRIVATE .)
-    TARGET_LINK_LIBRARIES(end2end-bench PRIVATE XNNPACK benchmark bench-models bench-utils)
+    TARGET_LINK_LIBRARIES(end2end-bench PRIVATE XNNPACK all_microkernels benchmark bench-models bench-utils)
 
     ADD_EXECUTABLE(f16-gemm-e2e-bench bench/f16-gemm-e2e.cc)
     TARGET_INCLUDE_DIRECTORIES(f16-gemm-e2e-bench PRIVATE . src)

@@ -23,7 +23,7 @@
 #include <xnnpack/microparams-init.h>
 
 #include "KernelDesc.h"
-#include "MatMul.h"
+#include "MatMulSpecialized.h"
 
 static inline bool is_fp16_zero(uint16_t x) {
   const uint16_t two_x = x + x;
@@ -282,7 +282,7 @@ class SpMMNanoMicrokernelTester {
       }
 
       sop::TileConfig tile_config;
-      sop::MatMul<KernelDesc> matmul(
+      sop::MatMulSpecialized<KernelDesc> matmul(
         coo, m(), tile_config, 1, executor_id_, mapping_id_,
         bias.data(), sop::MINMAX, min, max);
 

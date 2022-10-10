@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
@@ -22,7 +24,13 @@
 #include <xnnpack/pack.h>
 #include <xnnpack/microparams-init.h>
 #include <xnnpack/params.h>
+#include <xnnpack/params.h>
 
+#include "spnano_wrapper.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 enum xnn_status xnn_create_convolution2d_nchw_f32(
     uint32_t input_padding_top,
@@ -167,7 +175,11 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
   const bool is_5x5 = kernel_width == 5 && kernel_height == 5 && dilation_height == 1 && dilation_width == 1;
   const bool nhwc_input = (flags & XNN_FLAG_INPUT_NHWC) != 0;
   if (is_1x1 && !any_padding && !nhwc_input && groups == 1) {
-    ukernel_type = xnn_ukernel_type_spmm;
+    if (flags & XNN_FLAG_USE_SPNANO) {
+      ukernel_type = xnn_ukernel_type_spmm_nano;
+    } else {
+      ukernel_type = xnn_ukernel_type_spmm;
+    }
   } else if (is_3x3 && subsampling_height == 2 && subsampling_width == 2 &&
     input_padding_top == 1 && input_padding_left == 1 && input_padding_bottom == 1 && input_padding_right == 1 &&
     nhwc_input && groups == 1)
@@ -224,8 +236,30 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
   }
 
   switch (ukernel_type) {
-    case xnn_ukernel_type_spmm:
-    {
+    case xnn_ukernel_type_spmm_nano: {
+      spnano_coo_t coo = allocate_coo_matrix_f32(group_output_channels, group_input_channels);
+      // coo_matrix_add_nnz_f32(coo, )
+
+      int nnz = 0;
+      for (size_t oc = 0; oc < group_output_channels; oc++) {
+        for (size_t ic = 0; ic < group_input_channels; ic++) {
+          if (kernel[oc * group_input_channels + ic] != 0.0f) {
+            coo_matrix_add_nnz_f32(coo, oc, ic, kernel[oc * group_input_channels + ic]);
+            nnz += 1;
+          }
+        }
+      }
+
+      float* bias_buffer = xnn_allocate_simd_memory(sizeof(float) * group_output_channels);
+      memcpy(bias_buffer, bias, sizeof(float) * group_output_channels);
+      convolution_op->ukernel.spmm_nano = (struct xnn_ukernel_spmm_nano){
+        .matrix = coo,
+        .bias = bias_buffer
+      };
+      break;
+    }
+
+    case xnn_ukernel_type_spmm: {
       assert(kernel_height == 1);
       assert(kernel_width == 1);
       assert(groups == 1);
@@ -581,6 +615,41 @@ static enum xnn_status setup_convolution2d_nchw(
   const size_t input_batch_stride = (input_height * input_width * convolution_op->input_pixel_stride) << log2_input_element_size;
   const size_t output_batch_stride = (output_height * output_width * convolution_op->output_pixel_stride) << log2_output_element_size;
   switch (convolution_op->ukernel.type) {
+    case xnn_ukernel_type_spmm_nano:
+    {
+      const size_t input_size = input_height * input_width;
+      spnano_coo_t coo = convolution_op->ukernel.spmm_nano.matrix;
+      spnano_matmul_t matmul = allocate_matmul_f32(coo, num_threads / batch_size, input_size);
+      deallocate_coo_matrix_f32(coo);
+
+      spnano_executor_t executor = get_executor_f32(matmul);
+      int parallel_tiles = get_num_parallel_tiles_f32(executor);
+
+      float* bias = convolution_op->ukernel.spmm_nano.bias;
+      float max = convolution_op->params.f32_minmax.avx.max[0];
+      float min = convolution_op->params.f32_minmax.avx.min[0];
+
+      if (batch_size > 1) {
+        xnn_log_error(
+          "failed to setup spmmnano operator with %zu batches: batch size must be 1 for this kernel", batch_size);
+        return xnn_status_unsupported_parameter;
+      }
+
+      begin_threaded_f32(executor, output, input, bias, min, max);
+      convolution_op->context.spmm_nano.executor = executor;
+
+      convolution_op->compute.type = xnn_parallelization_type_2d_tile_1d;
+      convolution_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_spmm_nano;
+      convolution_op->compute.range[0] = batch_size;
+      convolution_op->compute.range[1] = parallel_tiles;
+      convolution_op->compute.tile[0] = 1;
+      convolution_op->state = xnn_run_state_ready;
+
+      return xnn_status_success;
+
+      break;
+    }
+
     case xnn_ukernel_type_spmm:
     {
       const size_t num_nonzero_values = convolution_op->num_nonzero_values;
@@ -597,6 +666,7 @@ static enum xnn_status setup_convolution2d_nchw(
       int32_t* input_channel_diffs = (int32_t*) (output_channel_nonzeros + num_output_channel_blocks);
 
       const size_t input_size = input_height * input_width;
+      //printf("input_size: %d\n", input_size);
       for (size_t i = 0; i < num_nonzero_blocks; i++) {
         const int32_t diff = input_channel_diffs[i];
         const int64_t increment = (int64_t) diff * input_size;
@@ -771,3 +841,7 @@ enum xnn_status xnn_setup_convolution2d_nchw_f32(
     &convolution_op->params.f32_chw,
     pthreadpool_get_threads_count(threadpool));
 }
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif

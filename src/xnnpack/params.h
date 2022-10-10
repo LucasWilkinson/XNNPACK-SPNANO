@@ -249,6 +249,10 @@ struct spmm_parameters {
   uint8_t nr;
 };
 
+struct spmm_nano_parameters_f32 {
+
+};
+
 struct conv_hwc2chw_parameters {
   xnn_conv_hwc2chw_ukernel_function ukernel_with_symm_padding;
   // Number of output channels in a tile.
@@ -629,6 +633,8 @@ struct xnn_parameters {
     struct spmm_parameters spmm2;
     // Sparse Matrix-Dense Matrix Multiplication (NR=4 block).
     struct spmm_parameters spmm4;
+    // SPNANO
+    struct spmm_nano_parameters_f32 spmm_nano;
     // Direct 3x3 stride-2 Convolution with 3 input channels and HWC->CHW layout conversion.
     struct conv_hwc2chw_parameters conv_hwc2chw_3x3c3s2;
     // Direct 3x3 stride-1 Convolution with padding 1 on left and right in CHW layout.

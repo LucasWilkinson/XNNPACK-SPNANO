@@ -18,6 +18,7 @@ enum xnn_ukernel_type {
   xnn_ukernel_type_igemm,
   xnn_ukernel_type_pixelwise_average_pooling,
   xnn_ukernel_type_spmm,
+  xnn_ukernel_type_spmm_nano,
   xnn_ukernel_type_subconv2d,
   xnn_ukernel_type_vmulcaddc,
 };

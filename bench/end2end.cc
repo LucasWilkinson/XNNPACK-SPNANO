@@ -8,6 +8,7 @@
 #include <functional>
 #include <random>
 #include <vector>
+#include <iostream>
 
 #include <xnnpack.h>
 
@@ -74,11 +75,42 @@ static void FP32MobileNetV3SmallFused(benchmark::State& state) {
 }
 #endif  // XNN_PLATFORM_JIT && XNN_ENABLE_JIT
 
+static void FP32Sparse90MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1(0.9f, threadpool);
+  });
+}
+
+static void FP32Sparse90MobileNetV1Nano(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1Nano(0.9f, threadpool);
+  });
+}
+
 static void FP32Sparse80MobileNetV1(benchmark::State& state) {
   End2EndBenchmark(state, [](pthreadpool_t threadpool) {
     return models::FP32SparseMobileNetV1(0.8f, threadpool);
   });
 }
+
+static void FP32Sparse80MobileNetV1Nano(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1Nano(0.8f, threadpool);
+  });
+}
+
+static void FP32Sparse70MobileNetV1(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1(0.7f, threadpool);
+  });
+}
+
+static void FP32Sparse70MobileNetV1Nano(benchmark::State& state) {
+  End2EndBenchmark(state, [](pthreadpool_t threadpool) {
+    return models::FP32SparseMobileNetV1Nano(0.7f, threadpool);
+  });
+}
+
 
 static void FP32Sparse80MobileNetV2(benchmark::State& state) {
   End2EndBenchmark(state, [](pthreadpool_t threadpool) {
@@ -138,32 +170,39 @@ static void QU8MobileNetV2(benchmark::State& state) {
   End2EndBenchmark(state, models::QU8MobileNetV2);
 }
 
-BENCHMARK(FP32MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 #if XNN_PLATFORM_JIT && XNN_ENABLE_JIT
 BENCHMARK(FP32MobileNetV3SmallFused)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 #endif  // XNN_PLATFORM_JIT && XNN_ENABLE_JIT
 
+BENCHMARK(FP32MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse70MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse70MobileNetV1Nano)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 BENCHMARK(FP32Sparse80MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32Sparse80MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32Sparse80MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP32Sparse80MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse80MobileNetV1Nano)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse90MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+BENCHMARK(FP32Sparse90MobileNetV1Nano)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
-BENCHMARK(FP16MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP16MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP16MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(FP16MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32Sparse80MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32Sparse80MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP32Sparse80MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
-BENCHMARK(QC8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(QC8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-
-BENCHMARK(QS8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(QS8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-
-BENCHMARK(QU8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(QU8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP16MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP16MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP16MobileNetV3Large)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(FP16MobileNetV3Small)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//
+//BENCHMARK(QC8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(QC8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//
+//BENCHMARK(QS8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(QS8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//
+//BENCHMARK(QU8MobileNetV1)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
+//BENCHMARK(QU8MobileNetV2)->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
 BENCHMARK_MAIN();
