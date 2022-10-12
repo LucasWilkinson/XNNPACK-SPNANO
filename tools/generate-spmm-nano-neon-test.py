@@ -119,18 +119,16 @@ def main(args):
 """.format(specification="none", generator=sys.argv[0])
 
     executor_mapping_pairs_to_test = [
-        ("da01e", "64487_AVX512_512_4x6"),
-        ("61fee", "c22a5_AVX512_512_4x6"),
-        ("400fa", "77f9d_AVX512_512_8x3")
+        ("61fee", "c22a5_NEON_128_4x2"),
     ]
 
 
     for k_block in [49, 64, 196, 784, 3136]:
         for mapping_id, executor_id in executor_mapping_pairs_to_test:
-            for kernel_desc in ["KD_IntelFloatKNM", "KD_IntelFloatNKM"]:
+            for kernel_desc in ["KD_PIFloatSplitM"]:
                 # specification can override architecture
-                isa = "avx512f"
-                arch = ["x86-64"]
+                isa = "neonfma"
+                arch = ["aarch64"]
 
                 test_case = generate_test_cases(1, 1, k_block, isa, mapping_id, executor_id, kernel_desc)
                 tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa)

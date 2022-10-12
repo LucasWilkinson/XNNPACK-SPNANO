@@ -8200,13 +8200,29 @@ IF(XNNPACK_BUILD_TESTS)
 #    ADD_TEST(NAME unpooling-2d-test COMMAND unpooling-2d-test)
   ENDIF()
 
-  # SPNANO Unit test
-  ADD_EXECUTABLE(f32-spmm-nano-minmax-test test/f32-spmm-nano-minmax.cc)
-  TARGET_INCLUDE_DIRECTORIES(f32-spmm-nano-minmax-test PRIVATE include src test ${SPNANO_INCLUDE_DIRS})
-  TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE cpuinfo fp16 pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE all_microkernels microparams_init)
-  TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE spnano)
-  ADD_TEST(NAME f32-spmm-nano-minmax-test COMMAND f32-spmm-nano-minmax-test)
+
+  IF(XNNPACK_ENABLE_SPNANO AND XNNPACK_ENABLE_SPARSE)
+
+    # SPNANO Unit test
+    IF(${ENABLE_AVX512} OR ${ENABLE_AVX2})
+      ADD_EXECUTABLE(f32-spmm-nano-minmax-test test/f32-spmm-nano-minmax.cc)
+      TARGET_INCLUDE_DIRECTORIES(f32-spmm-nano-minmax-test PRIVATE include src test ${SPNANO_INCLUDE_DIRS})
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE cpuinfo fp16 pthreadpool gtest gtest_main)
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE all_microkernels microparams_init)
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-minmax-test PRIVATE spnano)
+      ADD_TEST(NAME f32-spmm-nano-minmax-test COMMAND f32-spmm-nano-minmax-test)
+    ENDIF()
+
+    IF(${ENABLE_NEON})
+      # SPNANO Unit test
+      ADD_EXECUTABLE(f32-spmm-nano-neon-minmax-test test/f32-spmm-nano-neon-minmax.cc)
+      TARGET_INCLUDE_DIRECTORIES(f32-spmm-nano-neon-minmax-test PRIVATE include src test ${SPNANO_INCLUDE_DIRS})
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-neon-minmax-test PRIVATE cpuinfo fp16 pthreadpool gtest gtest_main)
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-neon-minmax-test PRIVATE all_microkernels microparams_init)
+      TARGET_LINK_LIBRARIES(f32-spmm-nano-neon-minmax-test PRIVATE spnano)
+      ADD_TEST(NAME f32-spmm-nano-neon-minmax-test COMMAND f32-spmm-nano-neon-minmax-test)
+    ENDIF()
+  ENDIF()
 
 #
 #  # ---[ Normalization unit tests

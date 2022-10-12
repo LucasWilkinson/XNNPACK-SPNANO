@@ -280,6 +280,12 @@ class SpMMNanoMicrokernelTester {
       }
 
       sop::TileConfig tile_config;
+
+      tile_config.M_c = 8;
+      tile_config.N_c = 8;
+      tile_config.K_c = 32;
+      tile_config.tiling_strategy = sop::MANUAL_TILING;
+
       sop::MatMulSpecialized<KernelDesc> matmul(
         coo, m(), tile_config, 1, executor_id_, mapping_id_);
 

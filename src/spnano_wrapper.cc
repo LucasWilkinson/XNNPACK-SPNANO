@@ -151,8 +151,8 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   std::string schedule = "KNM";
   bool packed = false;
 
-#ifdef ENABLE_AVX512
-  //packed = (b_cols % 16) != 0;
+#ifdef __AVX512VL__
+  packed = (b_cols % 16) != 0 && num_threads == 1; // Parallel packing not yet supported
 #endif
 
   //b_cols = b_cols & ~(16-1);
@@ -280,7 +280,7 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   return matmul;
 }
 
-extern "C" void spnano_delete_matmul(spnano_matmul_t m) {
+extern "C" void spnano_delete_matmul_f32(spnano_matmul_t m) {
   sop::MatMul<float>* matmul = reinterpret_cast<sop::MatMul<float>*>(m);
   delete matmul;
 }
@@ -311,8 +311,7 @@ extern "C" void spnano_run_thread_f32(spnano_executor_t e, int p, int tid) {
   executor->execute_thread(p, tid);
 }
 
-
-extern "C" enum xnn_status xnn_delete_spnano_operator(xnn_operator_t op)
+extern "C" enum xnn_status xnn_delete_spnano_operator_f32(xnn_operator_t op)
 {
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     //xnn_log_error("failed to delete operator: XNNPACK is not initialized");
@@ -323,7 +322,7 @@ extern "C" enum xnn_status xnn_delete_spnano_operator(xnn_operator_t op)
     return xnn_status_invalid_parameter;
   }
 
-  spnano_delete_matmul(op->context.spmm_nano.matmul);
+  spnano_delete_matmul_f32(op->context.spmm_nano.matmul);
 
   return xnn_delete_operator(op);
 }
