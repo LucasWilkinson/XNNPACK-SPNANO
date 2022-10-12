@@ -18,7 +18,8 @@
 #include <xnnpack/ukernel-type.h>
 
 #ifndef XNN_LOG_LEVEL
-  #error "Undefined XNN_LOG_LEVEL"
+  //#error "Undefined XNN_LOG_LEVEL"
+  #define XNN_LOG_LEVEL 2
 #endif
 
 #define XNN_LOG_NONE 0

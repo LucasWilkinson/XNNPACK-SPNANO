@@ -1,5 +1,7 @@
 #include "xnnpack.h"
 #include <xnnpack/log.h>
+#include <xnnpack/operator.h>
+#include <xnnpack/params.h>
 
 #include "spnano_wrapper.h"
 
@@ -313,7 +315,7 @@ extern "C" void spnano_run_thread_f32(spnano_executor_t e, int p, int tid) {
 extern "C" enum xnn_status xnn_delete_spnano_operator(xnn_operator_t op)
 {
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
-    xnn_log_error("failed to delete operator: XNNPACK is not initialized");
+    //xnn_log_error("failed to delete operator: XNNPACK is not initialized");
     return xnn_status_uninitialized;
   }
 
