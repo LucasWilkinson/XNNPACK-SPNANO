@@ -34,13 +34,11 @@ template<typename KernelDesc>
 class SpMMNanoMicrokernelTester {
  public:
   inline SpMMNanoMicrokernelTester& executor_id(std::string executor_id) {
-    assert(m != 0);
     this->executor_id_ = executor_id;
     return *this;
   }
 
   inline SpMMNanoMicrokernelTester& mapping_id(std::string mapping_id) {
-    assert(m != 0);
     this->mapping_id_ = mapping_id;
     return *this;
   }
@@ -283,10 +281,10 @@ class SpMMNanoMicrokernelTester {
 
       sop::TileConfig tile_config;
       sop::MatMulSpecialized<KernelDesc> matmul(
-        coo, m(), tile_config, 1, executor_id_, mapping_id_,
-        bias.data(), sop::MINMAX, min, max);
+        coo, m(), tile_config, 1, executor_id_, mapping_id_);
 
-      matmul(output.data(), input.data(), m());
+      matmul.allocate_executor(m());
+      matmul(output.data(), input.data(), bias.data(), sop::MINMAX, min, max);
 
       // Validate micro-kernel outputs.
       for (size_t i = 0; i < m(); i++) {
@@ -294,7 +292,7 @@ class SpMMNanoMicrokernelTester {
           ASSERT_NEAR(
               output[j * output_stride() + i],
               output_ref[j * m() + i],
-              std::abs(output_ref[j * m() + i]) * 1.0e-5f)
+              std::abs(output_ref[j * m() + i]) * 1.0e-6f)
             << "at M index " << i
             << ", N index " << j << " / " << n() << " (tile " << nr() << ")"
             << ", K = " << k()

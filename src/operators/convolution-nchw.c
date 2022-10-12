@@ -237,24 +237,26 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
 
   switch (ukernel_type) {
     case xnn_ukernel_type_spmm_nano: {
-      spnano_coo_t coo = allocate_coo_matrix_f32(group_output_channels, group_input_channels);
-      // coo_matrix_add_nnz_f32(coo, )
+      spnano_coo_t coo = spnano_allocate_coo_matrix_f32(group_output_channels, group_input_channels);
 
       int nnz = 0;
       for (size_t oc = 0; oc < group_output_channels; oc++) {
         for (size_t ic = 0; ic < group_input_channels; ic++) {
           if (kernel[oc * group_input_channels + ic] != 0.0f) {
-            coo_matrix_add_nnz_f32(coo, oc, ic, kernel[oc * group_input_channels + ic]);
+            spnano_coo_matrix_add_nnz_f32(coo, oc, ic, kernel[oc * group_input_channels + ic]);
             nnz += 1;
           }
         }
       }
 
-      float* bias_buffer = xnn_allocate_simd_memory(sizeof(float) * group_output_channels);
-      memcpy(bias_buffer, bias, sizeof(float) * group_output_channels);
+      convolution_op->num_nonzero_values = nnz;
+
+      // Check the lifetime of the bias buffer
+      //float* bias_buffer = xnn_allocate_simd_memory(sizeof(float) * group_output_channels);
+      //memcpy(bias_buffer, bias, sizeof(float) * group_output_channels);
       convolution_op->ukernel.spmm_nano = (struct xnn_ukernel_spmm_nano){
         .matrix = coo,
-        .bias = bias_buffer
+        .bias = bias
       };
       break;
     }
@@ -619,15 +621,21 @@ static enum xnn_status setup_convolution2d_nchw(
     {
       const size_t input_size = input_height * input_width;
       spnano_coo_t coo = convolution_op->ukernel.spmm_nano.matrix;
-      spnano_matmul_t matmul = allocate_matmul_f32(coo, num_threads / batch_size, input_size);
-      deallocate_coo_matrix_f32(coo);
+      spnano_matmul_t matmul = spnano_allocate_matmul_f32(coo, num_threads / batch_size, input_size);
 
-      spnano_executor_t executor = get_executor_f32(matmul);
-      int parallel_tiles = get_num_parallel_tiles_f32(executor);
+      spnano_executor_t executor = spnano_get_executor_f32(matmul);
+      int parallel_tiles = spnano_get_num_parallel_tiles_f32(executor);
+      //printf("par-tiles %d\n", parallel_tiles);
 
-      float* bias = convolution_op->ukernel.spmm_nano.bias;
-      float max = convolution_op->params.f32_minmax.avx.max[0];
-      float min = convolution_op->params.f32_minmax.avx.min[0];
+      const float* bias = convolution_op->ukernel.spmm_nano.bias;
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+      float max = convolution_op->params.f32_minmax.sse.max[0];
+      float min = convolution_op->params.f32_minmax.sse.min[0];
+#else
+      float max = convolution_op->params.f32_minmax.scalar.max;
+      float min = convolution_op->params.f32_minmax.scalar.min;
+#endif
+
 
       if (batch_size > 1) {
         xnn_log_error(
@@ -635,19 +643,26 @@ static enum xnn_status setup_convolution2d_nchw(
         return xnn_status_unsupported_parameter;
       }
 
-      begin_threaded_f32(executor, output, input, bias, min, max);
-      convolution_op->context.spmm_nano.executor = executor;
+      //spnano_begin_threaded_f32(executor, output, input, bias, min, max);
+      convolution_op->context.spmm_nano = (struct spmm_nano_context) {
+        .matmul = matmul,
+        .executor = executor,
+        .input = input,
+        .output = output,
+        .bias = bias,
+        .min = min,
+        .max = max
+      };
 
       convolution_op->compute.type = xnn_parallelization_type_2d_tile_1d;
+      convolution_op->compute.task_setup = (pthreadpool_task_setup_t) xnn_compute_spmm_nano_setup;
       convolution_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_spmm_nano;
       convolution_op->compute.range[0] = batch_size;
       convolution_op->compute.range[1] = parallel_tiles;
-      convolution_op->compute.tile[0] = 1;
+      convolution_op->compute.tile[0] = ((parallel_tiles + num_threads -1) / num_threads);
       convolution_op->state = xnn_run_state_ready;
 
       return xnn_status_success;
-
-      break;
     }
 
     case xnn_ukernel_type_spmm:

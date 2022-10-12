@@ -15,6 +15,7 @@
 #include <xnnpack/cache.h>
 
 #include "models/models.h"
+#include "spnano_wrapper.h"
 
 namespace models {
 
@@ -107,7 +108,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
   alignas(16) static std::array<float, 1001> w85;
 
   std::random_device random_device;
-  auto rng = std::mt19937(random_device());
+  auto rng = std::mt19937(42);
   auto f32rng = std::bind(std::uniform_real_distribution<float>(-1.0f, +1.0f), std::ref(rng));
   std::generate(v0.begin(), v0.end(), std::ref(f32rng));
   std::generate(v1.begin(), v1.end(), std::ref(f32rng));
@@ -482,7 +483,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #10" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op10, xnn_delete_operator);
+  operators.emplace_back(op10, xnn_delete_spnano_operator);
 
   xnn_operator_t op11 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -528,7 +529,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #12" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op12, xnn_delete_operator);
+  operators.emplace_back(op12, xnn_delete_spnano_operator);
 
   xnn_operator_t op13 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -574,7 +575,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #14" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op14, xnn_delete_operator);
+  operators.emplace_back(op14, xnn_delete_spnano_operator);
 
   xnn_operator_t op15 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -620,7 +621,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #16" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op16, xnn_delete_operator);
+  operators.emplace_back(op16, xnn_delete_spnano_operator);
 
   xnn_operator_t op17 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -666,7 +667,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #18" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op18, xnn_delete_operator);
+  operators.emplace_back(op18, xnn_delete_spnano_operator);
 
   xnn_operator_t op19 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -712,7 +713,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #20" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op20, xnn_delete_operator);
+  operators.emplace_back(op20, xnn_delete_spnano_operator);
 
   xnn_operator_t op21 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -758,7 +759,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #22" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op22, xnn_delete_operator);
+  operators.emplace_back(op22, xnn_delete_spnano_operator);
 
   xnn_operator_t op23 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -804,7 +805,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #24" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op24, xnn_delete_operator);
+  operators.emplace_back(op24, xnn_delete_spnano_operator);
 
   xnn_operator_t op25 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -850,7 +851,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     std::cerr << "failed to create operation #26" << std::endl;
     return ExecutionPlan();
   }
-  operators.emplace_back(op26, xnn_delete_operator);
+  operators.emplace_back(op26, xnn_delete_spnano_operator);
 
   xnn_operator_t op27 = nullptr;
   status = xnn_create_global_average_pooling_ncw_f32(

@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
@@ -341,15 +342,28 @@ void xnn_compute_gemm(
       context->fused_params);
 }
 
+void xnn_compute_spmm_nano_setup(const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)])
+{
+  void spnano_begin_threaded_f32(void* e, float* output, const float* input, const float* bias, float min, float max);
+  spnano_begin_threaded_f32(
+    context->executor,
+    context->output,
+    context->input,
+    context->bias,
+    context->min,
+    context->max
+  );
+}
+
 void xnn_compute_spmm_nano(
   const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)],
   size_t batch_index,
   size_t p_start,
-  size_t p_end)
+  size_t p_blk_size)
 {
-  extern void spnano_run_thread(void* e, int p_tile, int thread_id);
-  for (int p = p_start; p < p_end; p++) {
-    spnano_run_thread(context->executor, p, 0); // TODO: Figure out how to findout the thread id
+  extern void spnano_run_thread_f32(void* e, int p_tile, int thread_id);
+  for (int p = p_start; p < p_start + p_blk_size; p++) {
+    spnano_run_thread_f32(context->executor, p, 0); // TODO: Figure out how to findout the thread id
   }
 }
 
@@ -1383,6 +1397,13 @@ enum xnn_status xnn_run_operator_with_index(
   if (op->flags & XNN_FLAG_YIELD_WORKERS) {
     flags |= PTHREADPOOL_FLAG_YIELD_WORKERS;
   }
+
+  if (op->compute.type != xnn_parallelization_type_invalid) {
+    if (op->compute.task_setup) {
+      op->compute.task_setup(&op->context);
+    }
+  }
+
   switch (op->compute.type) {
     case xnn_parallelization_type_invalid:
       break;

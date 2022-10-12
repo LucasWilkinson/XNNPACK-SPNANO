@@ -107,7 +107,7 @@ ExecutionPlan FP32MobileNetV1(pthreadpool_t threadpool) {
   alignas(16) static std::array<float, 1001> w85;
 
   std::random_device random_device;
-  auto rng = std::mt19937(random_device());
+  auto rng = std::mt19937(42);
   auto f32rng = std::bind(std::uniform_real_distribution<float>(-1.0f, +1.0f), std::ref(rng));
   std::generate(v0.begin(), v0.end(), std::ref(f32rng));
   std::generate(v1.begin(), v1.end(), std::ref(f32rng));

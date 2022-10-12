@@ -15,6 +15,8 @@
 #include <xnnpack/params.h>
 
 
+typedef void (*pthreadpool_task_setup_t)(void*);
+
 enum xnn_parallelization_type {
   xnn_parallelization_type_invalid = 0,
   xnn_parallelization_type_1d,
@@ -38,6 +40,7 @@ enum xnn_parallelization_type {
 
 struct compute_parameters {
   enum xnn_parallelization_type type;
+  pthreadpool_task_setup_t task_setup;
   union {
     pthreadpool_task_1d_t task_1d;
     pthreadpool_task_1d_tile_1d_t task_1d_tile_1d;
@@ -261,7 +264,12 @@ struct spmm_context {
 // C [MxN] := A [MxK] * B [KxN] + bias [N]
 // A and C are dense matrices with row-major storage, B is a sparse matrix.
 struct spmm_nano_context {
+  void* matmul;
   void* executor;
+  float* output;
+  const float* input;
+  const float* bias;
+  float min, max;
 };
 
 #ifndef __cplusplus
@@ -273,6 +281,9 @@ struct spmm_nano_context {
 #endif
 
 #ifndef __cplusplus
+  XNN_PRIVATE void xnn_compute_spmm_nano_setup(
+    const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)]);
+
   XNN_PRIVATE void xnn_compute_spmm_nano(
     const struct spmm_nano_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t batch_index,

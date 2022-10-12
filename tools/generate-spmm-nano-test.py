@@ -9,7 +9,7 @@ import bisect
 import codecs
 import os
 import sys
-import yaml
+#import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from primes import next_prime
@@ -18,8 +18,8 @@ import xnncommon
 
 
 parser = argparse.ArgumentParser(description='XNNPACK generator')
-parser.add_argument("-s", "--spec", metavar="FILE", required=True,
-                    help="Spec (YAML) file")
+# parser.add_argument("-s", "--spec", metavar="FILE", required=True,
+#                     help="Spec (YAML) file")
 parser.add_argument("-o", "--output", metavar="FILE", required=True,
                     help='Output (C++ source) file')
 parser.set_defaults(defines=list())
@@ -35,17 +35,17 @@ def split_ukernel_name(name):
 
 
 TEST_TEMPLATE = """\
-TEST(${TEST_NAME}_float_relu6_80pct, k${KBLOCK}) {
+TEST(${TEST_NAME}_float_relu6_80pct, m${MBLOCK}) {
   $if ISA_CHECK:
     ${ISA_CHECK};
-  for (size_t m = 64; m <= 1024; m <<= 1) {
+  for (size_t k = 64; k <= 1024; k <<= 1) {
     for (uint32_t n = 64; n <= 1024; n <<= 1) {
       SpMMNanoMicrokernelTester<sop::${KERNEL_DESC}>()
         .mr(${MR})
         .nr(${NR})
-        .m(m)
+        .m(${MBLOCK})
         .n(n)
-        .k(${KBLOCK})
+        .k(k)
         .mapping_id("${MAPPING_ID}")
         .executor_id("${EXECUTOR_ID}")
         .sparsity(0.8f)
@@ -56,7 +56,7 @@ TEST(${TEST_NAME}_float_relu6_80pct, k${KBLOCK}) {
 """
 
 
-def generate_test_cases(mr, nr, k_block, isa, mapping_id, executor_id):
+def generate_test_cases(mr, nr, m_block, isa, mapping_id, executor_id, kernel_desc):
   """Generates all tests cases for a GEMM micro-kernel.
 
   Args:
@@ -80,15 +80,15 @@ def generate_test_cases(mr, nr, k_block, isa, mapping_id, executor_id):
   # _, datatype, ukernel_type, _ = ukernel.split("_", 3)
   # test_args = [ukernel]
   return xngen.preprocess(TEST_TEMPLATE, {
-      "TEST_NAME": "NANO_" + mapping_id + "_" + executor_id,
+      "TEST_NAME": "NANO_" + mapping_id + "_" + executor_id + "_" + kernel_desc,
       "TEST_ARGS": "",
       "UKERNEL_TYPE": "",
       "DATATYPE": "float",
       "MR": mr,
       "NR": nr,
-      "KBLOCK": k_block,
+      "MBLOCK": m_block,
       "ISA_CHECK": xnncommon.generate_isa_check_macro(isa),
-      "KERNEL_DESC": "KD_IntelFloatLoadBalancedNKM",
+      "KERNEL_DESC": kernel_desc,
       "MAPPING_ID": mapping_id,
       "EXECUTOR_ID": executor_id,
       "next_prime": next_prime,
@@ -96,9 +96,8 @@ def generate_test_cases(mr, nr, k_block, isa, mapping_id, executor_id):
 
 
 def main(args):
-  options = parser.parse_args(args)
-
-  with codecs.open(options.spec, "r", encoding="utf-8") as spec_file:
+    options = parser.parse_args(args)
+    # with codecs.open(options.spec, "r", encoding="utf-8") as spec_file:
     # spec_yaml = yaml.safe_load(spec_file)
     # if not isinstance(spec_yaml, list):
     #   raise ValueError("expected a list of micro-kernels in the spec")
@@ -121,24 +120,24 @@ def main(args):
 
 #include <xnnpack/spmm.h>
 #include "spmm-nano-microkernel-tester.h"
-""".format(specification=options.spec, generator=sys.argv[0])
+""".format(specification="none", generator=sys.argv[0])
 
     executor_mapping_pairs_to_test = [
+        ("da01e", "64487_AVX512_512_4x6"),
         ("61fee", "c22a5_AVX512_512_4x6"),
-        ("61fee", "c22a5_AVX512_512_4x4"),
-        ("400fa", "77f9d_AVX512_512_8x3"),
-        ("400fa", "77f9d_AVX512_512_8x2")
+        ("400fa", "77f9d_AVX512_512_8x3")
     ]
 
 
-    for k_block in [49, 64, 196, 784]:
+    for k_block in [49, 64, 196, 784, 3136]:
         for mapping_id, executor_id in executor_mapping_pairs_to_test:
-            # specification can override architecture
-            isa = "avx512f"
-            arch = ["x86-64"]
+            for kernel_desc in ["KD_IntelFloatKNM", "KD_IntelFloatNKM"]:
+                # specification can override architecture
+                isa = "avx512f"
+                arch = ["x86-64"]
 
-            test_case = generate_test_cases(1, 1, k_block, isa, mapping_id, executor_id)
-            tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa)
+                test_case = generate_test_cases(1, 1, k_block, isa, mapping_id, executor_id, kernel_desc)
+                tests += "\n\n" + xnncommon.postprocess_test_case(test_case, arch, isa)
 
     txt_changed = True
     if os.path.exists(options.output):

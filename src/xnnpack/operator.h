@@ -20,7 +20,6 @@
 #include <xnnpack/params.h>
 #include <xnnpack/ukernel-type.h>
 
-
 struct xnn_ukernel_conv2d {
   union {
     xnn_conv_hwc2chw_ukernel_function hwc2chw_function;
@@ -71,7 +70,7 @@ struct xnn_ukernel_spmm {
 
 struct xnn_ukernel_spmm_nano {
   void* matrix;
-  float* bias;
+  const float* bias;
 };
 
 struct xnn_ukernel_vmulcaddc {
