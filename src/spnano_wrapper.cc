@@ -63,6 +63,7 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   sop::MatMul<float>* matmul = nullptr;
 
 #ifdef __AVX512VL__
+
   if (num_threads >= 1) {
     if (b_cols >= 1024) {
       mapping_id = "da01e";
@@ -83,9 +84,27 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   }
 
 #elif __AVX2__
-
-  // TODO: Add AVX2 support
-
+    if (num_threads >= 1) {
+      if (b_cols >= 1024) {
+        mapping_id = "da01e";
+        executor_id = "64487_AVX2_256_4x3";
+        schedule = "KNM";
+      }
+      else if (b_cols >= 512) {
+        mapping_id = "61fee";
+        executor_id = "c22a5_AVX2_256_4x3";
+        schedule = "NKM";
+      }
+      else {
+        mapping_id = "400fa";
+        executor_id = "77f9d_AVX2_256_8x1";
+        schedule = "KNM";
+      }
+    }
+    else {
+      std::cout << "Not yet supported" << std::endl;
+      exit(-1);
+    }
 #endif
 
 #if (defined(__AVX512F__) || defined(__AVX2__))
