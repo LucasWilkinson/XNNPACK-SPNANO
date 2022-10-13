@@ -2,6 +2,7 @@
 #include <xnnpack/log.h>
 #include <xnnpack/operator.h>
 #include <xnnpack/params.h>
+#include <cpuinfo.h>
 
 #include "spnano_wrapper.h"
 
@@ -42,48 +43,40 @@ extern "C" void spnano_coo_matrix_add_nnz_f32(spnano_coo_t m, int i, int j, floa
 }
 
 
-extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_threads, int b_cols) {
+static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, int b_cols) {
   std::string mapping_id = "";
   std::string executor_id = "";
   std::string schedule = "KNM";
-  bool packed = false;
-
-#ifdef __AVX512VL__
-  packed = (b_cols % 16) != 0 && num_threads == 1; // Parallel packing not yet supported
-#endif
-
-  //b_cols = b_cols & ~(16-1);
-
-  COO<float>* coo = reinterpret_cast<COO<float>*>(m);
-
-  //std::cout << "BCols " << b_cols << " packed " << packed << std::endl;
-
 
   sop::TileConfig tile_config;
   sop::MatMul<float>* matmul = nullptr;
+  bool packed = false;
 
-#ifdef __AVX512VL__
+  if (cpuinfo_has_x86_avx512vl()) {
+    packed = (b_cols % 16) != 0 && num_threads == 1;  // Parallel packing not yet supported
 
-  if (num_threads >= 1) {
-    if (b_cols >= 1024) {
-      mapping_id = "da01e";
-      executor_id = "64487_AVX512_512_4x6";
-      schedule = "KNM";
-    } else if (b_cols >= 512) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_AVX512_512_4x6";
-      schedule = "NKM";
-    } else {
-      mapping_id = "400fa";
-      executor_id = "77f9d_AVX512_512_8x3";
-      schedule = "KNM";
+    if (num_threads >= 1) {
+      if (b_cols >= 1024) {
+        mapping_id = "da01e";
+        executor_id = "64487_AVX512_512_4x6";
+        schedule = "KNM";
+      }
+      else if (b_cols >= 512) {
+        mapping_id = "61fee";
+        executor_id = "c22a5_AVX512_512_4x6";
+        schedule = "NKM";
+      }
+      else {
+        mapping_id = "400fa";
+        executor_id = "77f9d_AVX512_512_8x3";
+        schedule = "KNM";
+      }
     }
-  } else {
-    std::cout << "Not yet supported" << std::endl;
-    exit(-1);
-  }
-
-#elif __AVX2__
+    else {
+      std::cout << "Not yet supported" << std::endl;
+      exit(-1);
+    }
+  } else if (cpuinfo_has_x86_avx2()) {
     if (num_threads >= 1) {
       if (b_cols >= 1024) {
         mapping_id = "da01e";
@@ -105,9 +98,7 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
       std::cout << "Not yet supported" << std::endl;
       exit(-1);
     }
-#endif
-
-#if (defined(__AVX512F__) || defined(__AVX2__))
+  }
 
 #define CREATE_MATMUL(_packed, _load_balance_cond, _sechdule, KernelDesc)    \
     if (packed == _packed && _load_balance_cond && schedule == _sechdule) {  \
@@ -127,50 +118,63 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   CREATE_MATMUL(true,  (num_threads >  1), "KNM", sop::KD_IntelFloatLoadBalancedKNM);
   CREATE_MATMUL(true,  (num_threads >  1), "NKM", sop::KD_IntelFloatLoadBalancedNKM);
 
-#elif defined(__ARM_NEON)
+  return matmul;
+}
+
+static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, int b_cols) {
+  std::string mapping_id = "";
+  std::string executor_id = "";
+  std::string schedule = "KNM";
+
+  sop::TileConfig tile_config;
+  sop::MatMul<float>* matmul = nullptr;
+
   if (num_threads == 1) {
-      int N_c = 12;
-      if (b_cols >= 1024) {
-        N_c = 48;
-      }
-      else if (b_cols >= 512) {
-        N_c = 12;
-      }
-      else if (b_cols >= 128) {
-        N_c = 96;
-      }
-      else {
-        N_c = 48;
-      }
+    int N_c = 12;
+    if (b_cols >= 1024) {
+      N_c = 48;
+    }
+    else if (b_cols >= 512) {
+      N_c = 12;
+    }
+    else if (b_cols >= 128) {
+      N_c = 96;
+    }
+    else {
+      N_c = 48;
+    }
 
-      tile_config.M_c = coo->rows();
-      tile_config.N_c = N_c;
-      tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
-      tile_config.tiling_strategy = sop::MANUAL_TILING;
+    tile_config.M_c = coo->rows();
+    tile_config.N_c = N_c;
+    tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
+    tile_config.tiling_strategy = sop::MANUAL_TILING;
 
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x2";
-      schedule = "N";
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x2";
+    schedule = "N";
   } else {
-      int N_c = 12;
-      if (b_cols >= 1024) {
-        N_c = 48;
-      } else if (b_cols >= 512) {
-        N_c = 12;
-      } else if (b_cols >= 128) {
-        N_c = 96;
-      } else {
-        N_c = 48;
-      }
+    int N_c = 12;
+    if (b_cols >= 1024) {
+      N_c = 48;
+    }
+    else if (b_cols >= 512) {
+      N_c = 12;
+    }
+    else if (b_cols >= 128) {
+      N_c = 96;
+    }
+    else {
+      N_c = 48;
+    }
 
-      tile_config.M_c = coo->rows();
-      tile_config.N_c = N_c;
-      tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
-      tile_config.tiling_strategy = sop::MANUAL_TILING;
+    tile_config.M_c = coo->rows();
+    tile_config.N_c = N_c;
+    tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
+    tile_config.tiling_strategy = sop::MANUAL_TILING;
 
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x2";
-      schedule = "M";
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x6";
+    schedule = "M";
   }
 
   if (schedule == "M") {
@@ -182,7 +186,24 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
       coo, b_cols, tile_config, num_threads, executor_id, mapping_id
     );
   }
-#endif
+
+  return matmul;
+}
+
+
+extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_threads, int b_cols)
+{
+  sop::MatMul<float>* matmul = nullptr;
+  COO<float>* coo = reinterpret_cast<COO<float>*>(m);
+
+  if (cpuinfo_has_x86_avx2() || cpuinfo_has_x86_avx512f()) {
+    matmul = create_matmul_avx(coo, num_threads, b_cols);
+  } else if (cpuinfo_has_arm_neon_v8()) {
+    matmul = create_matmul_neon(coo, num_threads, b_cols);
+  } else {
+    std::cout << "Architecture not yet supported" << std::endl;
+    exit(-1);
+  }
 
   matmul->allocate_executor(b_cols);
   return matmul;
