@@ -124,65 +124,100 @@ static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, i
 static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, int b_cols) {
   std::string mapping_id = "";
   std::string executor_id = "";
-  std::string schedule = "KNM";
+  std::string schedule = "M";
 
   sop::TileConfig tile_config;
   sop::MatMul<float>* matmul = nullptr;
 
+  // NOTE: Executor mapping pairs
+  //   "61fee" -> "c22a5", Mr = 4, indentity
+  //   "da01e" -> "c22a5", Mr = 4
+  //   "400fa" -> "77f9d", Mr = 8
+
+  int N_c = 0, K_c = 0, M_c = 0;
   if (num_threads == 1) {
-    int N_c = 12;
     if (b_cols >= 1024) {
-      N_c = 48;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x4";
+      schedule = "N";
+      N_c = 64;
+      M_c = 128;
+      K_c = 64;
     }
     else if (b_cols >= 512) {
-      N_c = 12;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x4";
+      schedule = "N";
+      N_c = 16;
+      M_c = 512;
+      K_c = 128;
     }
     else if (b_cols >= 128) {
-      N_c = 96;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x6";
+      schedule = "M";
+      N_c = 216;
+      M_c = 64;
+      K_c = 128;
     }
     else {
-      N_c = 48;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x6";
+      schedule = "M";
+      N_c = 72;
+      M_c = 64;
+      K_c = 128;
     }
-
-    tile_config.M_c = coo->rows();
-    tile_config.N_c = N_c;
-    tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
-    tile_config.tiling_strategy = sop::MANUAL_TILING;
-
-    mapping_id = "61fee";
-    executor_id = "c22a5_NEON_128_4x2";
-    schedule = "N";
   } else {
-    int N_c = 12;
     if (b_cols >= 1024) {
-      N_c = 48;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x4";
+      schedule = "N";
+      N_c = 64;
+      M_c = 128;
+      K_c = 64;
     }
     else if (b_cols >= 512) {
-      N_c = 12;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x6";
+      schedule = "N";
+      N_c = 24;
+      M_c = 512;
+      K_c = 128;
     }
     else if (b_cols >= 128) {
-      N_c = 96;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x6";
+      schedule = "M";
+      N_c = 216;
+      M_c = 64;
+      K_c = 32;
     }
     else {
-      N_c = 48;
+      mapping_id = "61fee";
+      executor_id = "c22a5_NEON_128_4x6";
+      schedule = "M";
+      N_c = 72;
+      M_c = 64;
+      K_c = 64;
     }
-
-    tile_config.M_c = coo->rows();
-    tile_config.N_c = N_c;
-    tile_config.K_c = (b_cols >= 1024) ? 64 : 128;
-    tile_config.tiling_strategy = sop::MANUAL_TILING;
-
-    mapping_id = "61fee";
-    executor_id = "c22a5_NEON_128_4x6";
-    schedule = "M";
   }
 
+  tile_config.M_c = M_c;
+  tile_config.N_c = N_c;
+  tile_config.K_c = K_c;
+  tile_config.tiling_strategy = sop::MANUAL_TILING;
+
   if (schedule == "M") {
+    tile_config.N_c = coo->cols();
+
     matmul = new sop::MatMulSpecialized<sop::KD_PIFloatSplitM>(
       coo, b_cols, tile_config, num_threads, executor_id, mapping_id
     );
   } else {
-    matmul = new sop::MatMulSpecialized<sop::KD_PIFloatSplitM>(
+    tile_config.M_c = coo->rows();
+
+    matmul = new sop::MatMulSpecialized<sop::KD_PIFloatSplitN>(
       coo, b_cols, tile_config, num_threads, executor_id, mapping_id
     );
   }
