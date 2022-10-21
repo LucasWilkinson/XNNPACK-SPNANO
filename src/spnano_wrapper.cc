@@ -46,52 +46,77 @@ extern "C" void spnano_coo_matrix_add_nnz_f32(spnano_coo_t m, int i, int j, floa
 static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, int b_cols) {
   std::string mapping_id = "";
   std::string executor_id = "";
-  std::string schedule = "KNM";
 
   sop::TileConfig tile_config;
+  tile_config.tiling_strategy = sop::CAKE_TILING_WITH_TLB_COMPENSATION;
+
   sop::MatMul<float>* matmul = nullptr;
   bool packed = false;
 
   if (cpuinfo_has_x86_avx512vl()) {
-    packed = (b_cols % 16) != 0 && num_threads == 1;  // Parallel packing not yet supported
-
-    if (num_threads >= 1) {
-      if (b_cols >= 1024) {
-        mapping_id = "da01e";
-        executor_id = "64487_AVX512_512_4x6";
-        schedule = "KNM";
-      }
-      else if (b_cols >= 512) {
+    packed = (b_cols % 16) != 0 && num_threads == 1;  // packing is less efficient in the parallel
+    if (num_threads == 1) {
+//      if (b_cols >= 1024) { // TODO: Test orig mapping with new schedule
+//        mapping_id = "da01e";
+//        executor_id = "64487_AVX512_512_4x6";
+//        tile_config.runtimeSchedule = sop::nmMN;
+//      }
+//      else
+      if (b_cols >= 512) {
         mapping_id = "61fee";
         executor_id = "c22a5_AVX512_512_4x6";
-        schedule = "NKM";
+        tile_config.runtimeSchedule = sop::nmN;
+      }
+      else if (b_cols >= 128) {
+        mapping_id = "61fee";
+        executor_id = "c22a5_AVX512_512_4x6";
+        tile_config.runtimeSchedule = sop::nmN;
       }
       else {
         mapping_id = "400fa";
         executor_id = "77f9d_AVX512_512_8x3";
-        schedule = "KNM";
+        tile_config.runtimeSchedule = sop::nmKNM;
       }
     }
     else {
-      std::cout << "Not yet supported" << std::endl;
-      exit(-1);
+      //      if (b_cols >= 1024) { // TODO: Test orig mapping with new schedule
+      //        mapping_id = "da01e";
+      //        executor_id = "64487_AVX512_512_4x6";
+      //        tile_config.runtimeSchedule = sop::nmMN;
+      //      }
+      //      else
+      if (b_cols >= 512) {
+        mapping_id = "61fee";
+        executor_id = "c22a5_AVX512_512_4x6";
+        tile_config.runtimeSchedule = sop::nmN;
+      }
+      else if (b_cols >= 128) {
+        mapping_id = "400fa";
+        executor_id = "77f9d_AVX512_512_8x3";
+        tile_config.runtimeSchedule = sop::nmKNM;
+      }
+      else {
+        mapping_id = "400fa";
+        executor_id = "77f9d_AVX512_512_8x3";
+        tile_config.runtimeSchedule = sop::nmKNM;
+      }
     }
   } else if (cpuinfo_has_x86_avx2()) {
     if (num_threads >= 1) {
       if (b_cols >= 1024) {
         mapping_id = "da01e";
         executor_id = "64487_AVX2_256_4x3";
-        schedule = "KNM";
+        tile_config.runtimeSchedule = sop::nmMN;
       }
       else if (b_cols >= 512) {
         mapping_id = "61fee";
         executor_id = "c22a5_AVX2_256_4x3";
-        schedule = "NKM";
+        tile_config.runtimeSchedule = sop::nmNKM;
       }
       else {
         mapping_id = "400fa";
         executor_id = "77f9d_AVX2_256_8x1";
-        schedule = "KNM";
+        tile_config.runtimeSchedule = sop::nmNKM;
       }
     }
     else {
@@ -100,23 +125,18 @@ static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, i
     }
   }
 
-#define CREATE_MATMUL(_packed, _load_balance_cond, _sechdule, KernelDesc)    \
-    if (packed == _packed && _load_balance_cond && schedule == _sechdule) {  \
-      ERROR_AND_EXIT_IF(matmul, "Already found matching kernel desc");       \
-      matmul = new sop::MatMulSpecialized<KernelDesc>(                       \
-         coo, b_cols, tile_config, num_threads, executor_id, mapping_id      \
-      ); \
+#define CREATE_MATMUL(_packed, _load_balance_cond, KernelDesc)                          \
+    if (packed == _packed && _load_balance_cond) {                                      \
+      ERROR_AND_EXIT_IF(matmul, "Already found matching kernel desc");                  \
+      matmul = new sop::MatMulSpecialized<KernelDesc>(                                  \
+        coo, b_cols, tile_config, num_threads, executor_id, mapping_id                  \
+      );                                                                                \
     }
 
-  CREATE_MATMUL(false, (num_threads == 1), "KNM", sop::KD_IntelFloatKNM);
-  CREATE_MATMUL(false, (num_threads == 1), "NKM", sop::KD_IntelFloatNKM);
-  CREATE_MATMUL(false, (num_threads >  1), "KNM", sop::KD_IntelFloatLoadBalancedKNM);
-  CREATE_MATMUL(false, (num_threads >  1), "NKM", sop::KD_IntelFloatLoadBalancedNKM);
-  CREATE_MATMUL(true,  (num_threads == 1), "KNM", sop::KD_IntelFloatPackedKNM);
-  // NOTE: NKM schedule or load balancing not supported for packed yet so use unpacked versions
-  CREATE_MATMUL(true,  (num_threads == 1), "NKM", sop::KD_IntelFloatNKM);
-  CREATE_MATMUL(true,  (num_threads >  1), "KNM", sop::KD_IntelFloatLoadBalancedKNM);
-  CREATE_MATMUL(true,  (num_threads >  1), "NKM", sop::KD_IntelFloatLoadBalancedNKM);
+  CREATE_MATMUL(false, (num_threads == 1), sop::KD_IntelFloat);
+  CREATE_MATMUL(false, (num_threads >  1), sop::KD_IntelFloatLoadBalanced);
+  CREATE_MATMUL(true,  (num_threads == 1), sop::KD_IntelFloatPacked);
+  CREATE_MATMUL(true,  (num_threads >  1), sop::KD_IntelFloatLoadBalancedPacked);
 
   return matmul;
 }
@@ -124,13 +144,12 @@ static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, i
 static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, int b_cols) {
   std::string mapping_id = "";
   std::string executor_id = "";
-  std::string schedule = "M";
 
   sop::TileConfig tile_config;
   sop::MatMul<float>* matmul = nullptr;
 
   // NOTE: Executor mapping pairs
-  //   "61fee" -> "c22a5", Mr = 4, indentity
+  //   "61fee" -> "c22a5", Mr = 4, identity
   //   "da01e" -> "c22a5", Mr = 4
   //   "400fa" -> "77f9d", Mr = 8
 
@@ -139,32 +158,32 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
     if (b_cols >= 1024) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x4";
-      schedule = "N";
+      tile_config.runtimeSchedule = sop::nmKN;
       N_c = 64;
-      M_c = 128;
+      M_c = coo->rows();
       K_c = 64;
     }
     else if (b_cols >= 512) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x4";
-      schedule = "N";
+      tile_config.runtimeSchedule = sop::nmKN;
       N_c = 16;
-      M_c = 512;
+      M_c = coo->rows();
       K_c = 128;
     }
     else if (b_cols >= 128) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
-      schedule = "M";
-      N_c = 216;
+      tile_config.runtimeSchedule = sop::nmKM;
+      N_c = coo->cols();
       M_c = 64;
       K_c = 128;
     }
     else {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
-      schedule = "M";
-      N_c = 72;
+      tile_config.runtimeSchedule = sop::nmKM;
+      N_c = coo->cols();
       M_c = 64;
       K_c = 128;
     }
@@ -172,32 +191,32 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
     if (b_cols >= 1024) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x4";
-      schedule = "N";
+      tile_config.runtimeSchedule = sop::nmKN;
       N_c = 64;
-      M_c = 128;
+      M_c = coo->rows();
       K_c = 64;
     }
     else if (b_cols >= 512) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
-      schedule = "N";
+      tile_config.runtimeSchedule = sop::nmKN;
       N_c = 24;
-      M_c = 512;
+      M_c = coo->rows();
       K_c = 128;
     }
     else if (b_cols >= 128) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
-      schedule = "M";
-      N_c = 216;
+      tile_config.runtimeSchedule = sop::nmKM;
+      N_c = coo->cols();
       M_c = 64;
       K_c = 32;
     }
     else {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
-      schedule = "M";
-      N_c = 72;
+      tile_config.runtimeSchedule = sop::nmKM;
+      N_c = coo->cols();
       M_c = 64;
       K_c = 64;
     }
@@ -208,19 +227,9 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
   tile_config.K_c = K_c;
   tile_config.tiling_strategy = sop::MANUAL_TILING;
 
-  if (schedule == "M") {
-    tile_config.N_c = coo->cols();
-
-    matmul = new sop::MatMulSpecialized<sop::KD_PIFloatSplitM>(
-      coo, b_cols, tile_config, num_threads, executor_id, mapping_id
-    );
-  } else {
-    tile_config.M_c = coo->rows();
-
-    matmul = new sop::MatMulSpecialized<sop::KD_PIFloatSplitN>(
-      coo, b_cols, tile_config, num_threads, executor_id, mapping_id
-    );
-  }
+  matmul = new sop::MatMulSpecialized<sop::KD_PIFloat>(
+    coo, b_cols, tile_config, num_threads, executor_id, mapping_id
+  );
 
   return matmul;
 }
@@ -231,10 +240,14 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   sop::MatMul<float>* matmul = nullptr;
   COO<float>* coo = reinterpret_cast<COO<float>*>(m);
 
+#if defined(__x86_64__)
   if (cpuinfo_has_x86_avx2() || cpuinfo_has_x86_avx512f()) {
     matmul = create_matmul_avx(coo, num_threads, b_cols);
+#endif
+#ifdef _M_ARM64
   } else if (cpuinfo_has_arm_neon_v8()) {
     matmul = create_matmul_neon(coo, num_threads, b_cols);
+#endif
   } else {
     std::cout << "Architecture not yet supported" << std::endl;
     exit(-1);

@@ -9,6 +9,10 @@
 #include <random>
 #include <vector>
 #include <iostream>
+#include <chrono>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
 
 #include <xnnpack.h>
 #include "operator.h"
@@ -17,6 +21,14 @@
 
 #include "bench/utils.h"
 #include "models/models.h"
+
+
+template<typename Scalar>
+double median(std::vector<Scalar> &v) {
+  size_t n = v.size() / 2;
+  nth_element(v.begin(), v.begin() + n, v.end());
+  return v[n];
+}
 
 
 static void End2EndBenchmark(
@@ -38,28 +50,20 @@ static void End2EndBenchmark(
     return;
   }
 
-  void* final_output = nullptr;
-  int final_output_size = 0;
-  for (const std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>& op : execution_plan) {
-    xnn_status status = xnn_run_operator(op.get(), threadpool.get());
-    if (status != xnn_status_success) {
-      state.SkipWithError("failed to run a model");
-      return;
-    }
-    final_output = op.get()->output;
-    final_output_size = op.get()->output_height * op.get()->output_width * op.get()->output_pixel_stride;
-  }
-
-//  float* f32_final_output = (float*) final_output;
-//  for (int i = 0; i < final_output_size; i++) {
-//    std::cout << f32_final_output[i] << " ";
-//  }
-//  std::cout << std::endl;
-
+  std::vector<std::vector<double>> operator_times;
+  operator_times.resize(execution_plan.size());
+  for (auto& operator_time : operator_times) operator_time.reserve(200);
 
   for (auto _ : state) {
+    int layer_idx = 0;
+
     for (const std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>& op : execution_plan) {
+      auto start = std::chrono::high_resolution_clock::now();
       xnn_status status = xnn_run_operator(op.get(), threadpool.get());
+      auto end = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double, std::micro> duration = end - start;
+      operator_times[layer_idx++].push_back(duration.count());
+
       if (status != xnn_status_success) {
         state.SkipWithError("failed to run a model");
         return;
@@ -67,6 +71,10 @@ static void End2EndBenchmark(
     }
   }
 
+  for (int layer_idx = 0; layer_idx < operator_times.size(); layer_idx++) {
+    std::ostringstream str; str << std::setw(2) << std::setfill('0') << layer_idx;
+    state.counters["layer_" + str.str()] = median(operator_times[layer_idx]);
+  }
   const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
   if (cpu_frequency != 0) {
     state.counters["cpufreq"] = cpu_frequency;
@@ -276,14 +284,29 @@ static void End2EndBenchmark(
     return;
   }
 
+  std::vector<std::vector<double>> operator_times;
+  operator_times.resize(execution_plan.size());
+  for (auto& operator_time : operator_times) operator_time.reserve(200);
+
   for (auto _ : state) {
+    int layer_idx = 0;
+
     for (const std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>& op : execution_plan) {
+      auto start = std::chrono::high_resolution_clock::now();
       xnn_status status = xnn_run_operator(op.get(), threadpool.get());
+      auto end = std::chrono::high_resolution_clock::now();
+
+      operator_times[layer_idx++].push_back((end - start).count());
+
       if (status != xnn_status_success) {
         state.SkipWithError("failed to run a model");
         return;
       }
     }
+  }
+
+  for (int layer_idx = 0; layer_idx < operator_times.size(); layer_idx++) {
+    state.counters["layer_" + std::to_string(layer_idx)] = median(operator_times[layer_idx]);
   }
 
   const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();
