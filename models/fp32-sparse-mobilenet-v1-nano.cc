@@ -292,7 +292,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     64 /* output pixel stride */,
     w34.data(), w35.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    0 /* flags */,
+    XNN_FLAG_USE_SPNANO /* flags */,
     &caches,
     &op2);
   if (status != xnn_status_success) {
