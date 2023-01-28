@@ -145,29 +145,29 @@ void MultiThreadingParameters(benchmark::internal::Benchmark* benchmark) {
   // Disabled thread pool (execution on the caller thread only).
   benchmark->Arg(1);
 
-  if (cpuinfo_initialize()) {
-    // All cores except the little ones.
-    uint32_t max_cores = cpuinfo_get_cores_count();
-    if (cpuinfo_get_clusters_count() > 1) {
-      max_cores -= cpuinfo_get_cluster(cpuinfo_get_clusters_count() - 1)->core_count;
-    }
-
-    for (uint32_t t = 2; t < max_cores; t *= 2) {
-      benchmark->Arg(t);
-    }
-
-    benchmark->Arg(max_cores);
-
-    // All cores (if more than one cluster).
-    if (cpuinfo_get_cores_count() > max_cores) {
-      benchmark->Arg(cpuinfo_get_cores_count());
-    }
+//  if (cpuinfo_initialize()) {
+//    // All cores except the little ones.
+//    uint32_t max_cores = cpuinfo_get_cores_count();
+//    if (cpuinfo_get_clusters_count() > 1) {
+//      max_cores -= cpuinfo_get_cluster(cpuinfo_get_clusters_count() - 1)->core_count;
+//    }
+//
+//    for (uint32_t t = 4; t < max_cores; t *= 2) {
+//      benchmark->Arg(t);
+//    }
+//
+//    benchmark->Arg(max_cores);
+//
+//    // All cores (if more than one cluster).
+//    if (cpuinfo_get_cores_count() > max_cores) {
+//      benchmark->Arg(cpuinfo_get_cores_count());
+//    }
 
 //    // All cores + hyperthreads (only if hyperthreading supported).
 //    if (cpuinfo_get_processors_count() > cpuinfo_get_cores_count()) {
 //      benchmark->Arg(cpuinfo_get_processors_count());
 //    }
-  }
+//  }
 }
 
 

@@ -13,6 +13,7 @@
 #include <random>
 
 #include <xnnpack/cache.h>
+#include <xnnpack/params.h>
 
 #include "models/models.h"
 #include "spnano_wrapper.h"
@@ -232,6 +233,8 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
   xnn_caches caches = { 0 };
   caches.code_cache = &code_cache;
 
+  xnn_params.config_flags |= XNN_CONFIG_FLAG_USE_SPNANO;
+
   xnn_operator_t op0 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
     1 /* top padding */, 1 /* right padding */,
@@ -292,7 +295,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     64 /* output pixel stride */,
     w34.data(), w35.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op2);
   if (status != xnn_status_success) {
@@ -338,7 +341,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     128 /* output pixel stride */,
     w38.data(), w39.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op4);
   if (status != xnn_status_success) {
@@ -384,7 +387,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     128 /* output pixel stride */,
     w42.data(), w43.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op6);
   if (status != xnn_status_success) {
@@ -430,7 +433,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     256 /* output pixel stride */,
     w46.data(), w47.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op8);
   if (status != xnn_status_success) {
@@ -476,7 +479,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     256 /* output pixel stride */,
     w50.data(), w51.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op10);
   if (status != xnn_status_success) {
@@ -522,7 +525,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w54.data(), w55.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op12);
   if (status != xnn_status_success) {
@@ -568,7 +571,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w58.data(), w59.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op14);
   if (status != xnn_status_success) {
@@ -614,7 +617,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w62.data(), w63.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op16);
   if (status != xnn_status_success) {
@@ -660,7 +663,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w66.data(), w67.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op18);
   if (status != xnn_status_success) {
@@ -706,7 +709,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w70.data(), w71.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op20);
   if (status != xnn_status_success) {
@@ -752,7 +755,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     512 /* output pixel stride */,
     w74.data(), w75.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op22);
   if (status != xnn_status_success) {
@@ -798,7 +801,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     1024 /* output pixel stride */,
     w78.data(), w79.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op24);
   if (status != xnn_status_success) {
@@ -844,7 +847,7 @@ ExecutionPlan FP32SparseMobileNetV1Nano(float sparsity, pthreadpool_t threadpool
     1024 /* output pixel stride */,
     w82.data(), w83.data(),
     0.0f /* output min */, 6.0f /* output max */,
-    XNN_FLAG_USE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op26);
   if (status != xnn_status_success) {

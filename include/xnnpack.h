@@ -75,8 +75,8 @@ extern "C" {
 /// Yield worker threads of the thread pool to the system scheduler after the inference.
 #define XNN_FLAG_YIELD_WORKERS 0x00000010
 
-/// Use SPNANO for the layer
-#define XNN_FLAG_USE_SPNANO 0x01000000
+/// Disable SPNANO for the layer
+#define XNN_FLAG_DISABLE_SPNANO 0x01000000
 
 /// Status code for any XNNPACK function call.
 enum xnn_status {

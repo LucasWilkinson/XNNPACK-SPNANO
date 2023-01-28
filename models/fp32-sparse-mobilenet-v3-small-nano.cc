@@ -19,7 +19,7 @@
 
 namespace models {
 
-ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpool) {
+ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threadpool) {
   alignas(16) static std::array<float, 150528> v0;
   alignas(16) static std::array<float, 200704> v1;
   alignas(16) static std::array<float, 200704> v2;
@@ -532,7 +532,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
   xnn_caches caches = { 0 };
   caches.code_cache = &code_cache;
 
-  xnn_params.config_flags &= ~XNN_CONFIG_FLAG_USE_SPNANO;
+  xnn_params.config_flags |= XNN_CONFIG_FLAG_USE_SPNANO;
 
   xnn_operator_t op0 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
@@ -1187,7 +1187,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     240 /* output pixel stride */,
     w142.data(), w143.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op34);
   if (status != xnn_status_success) {
@@ -1362,7 +1362,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     120 /* output pixel stride */,
     w152.data(), w153.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op44);
   if (status != xnn_status_success) {
@@ -1526,7 +1526,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     144 /* output pixel stride */,
     w162.data(), w163.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op53);
   if (status != xnn_status_success) {
@@ -1701,7 +1701,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     288 /* output pixel stride */,
     w172.data(), w173.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op63);
   if (status != xnn_status_success) {
@@ -1842,7 +1842,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     96 /* output pixel stride */,
     w180.data(), w181.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op71);
   if (status != xnn_status_success) {
@@ -2006,7 +2006,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     96 /* output pixel stride */,
     w190.data(), w191.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op80);
   if (status != xnn_status_success) {
@@ -2181,7 +2181,7 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     96 /* output pixel stride */,
     w200.data(), w201.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    0 /* flags */,
+    XNN_FLAG_DISABLE_SPNANO /* flags */,
     &caches,
     &op90);
   if (status != xnn_status_success) {
@@ -2575,6 +2575,8 @@ ExecutionPlan FP32SparseMobileNetV3Small(float sparsity, pthreadpool_t threadpoo
     std::cerr << "failed to setup operation #23" << std::endl;
     return ExecutionPlan();
   }
+
+  std::cout << " input: " <<  v24.data() << " output: " << v25.data() << std::endl;
 
   status = xnn_setup_convolution2d_nchw_f32(
     op24,

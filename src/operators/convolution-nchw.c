@@ -175,7 +175,7 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
   const bool is_5x5 = kernel_width == 5 && kernel_height == 5 && dilation_height == 1 && dilation_width == 1;
   const bool nhwc_input = (flags & XNN_FLAG_INPUT_NHWC) != 0;
   if (is_1x1 && !any_padding && !nhwc_input && groups == 1) {
-    if (flags & XNN_FLAG_USE_SPNANO) {
+    if (xnn_params.config_flags & XNN_CONFIG_FLAG_USE_SPNANO && !(flags & XNN_FLAG_DISABLE_SPNANO)) {
       ukernel_type = xnn_ukernel_type_spmm_nano;
     } else {
       ukernel_type = xnn_ukernel_type_spmm;

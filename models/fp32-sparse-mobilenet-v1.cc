@@ -13,6 +13,7 @@
 #include <random>
 
 #include <xnnpack/cache.h>
+#include <xnnpack/params.h>
 
 #include "models/models.h"
 
@@ -230,6 +231,8 @@ ExecutionPlan FP32SparseMobileNetV1(float sparsity, pthreadpool_t threadpool) {
 #endif
   xnn_caches caches = { 0 };
   caches.code_cache = &code_cache;
+
+  xnn_params.config_flags &= ~XNN_CONFIG_FLAG_USE_SPNANO;
 
   xnn_operator_t op0 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(

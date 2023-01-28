@@ -36,3 +36,4 @@ Thumbs.db
 /cmake-build-debug/*
 /.idea/*
 /cmake-build-release/*
+cmake-build-*/

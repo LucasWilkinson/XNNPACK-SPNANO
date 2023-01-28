@@ -493,9 +493,13 @@ struct vmulcaddc_parameters {
 // Indicates that CHW XNNPACK microkernels are optimized for the host platform.
 #define XNN_INIT_FLAG_CHW_OPT    0x00004000
 
+// Use SPNANO for all 1x1 layers, unless XNN_FLAG_DISABLE_SPNANO is set
+#define XNN_CONFIG_FLAG_USE_SPNANO    0x00000001
+
 struct xnn_parameters {
   // Bitwise combination of XNN_INIT_FLAG_* flags
   uint32_t init_flags;
+  uint32_t config_flags;
   struct xnn_allocator allocator;
   struct {
     struct gemm_parameters gemm;

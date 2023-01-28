@@ -141,6 +141,10 @@ static sop::MatMul<float>* create_matmul_avx(COO<float>* coo, int num_threads, i
   return matmul;
 }
 
+int round_up(int x, int y) {
+  return (x + y - 1) / y * y;
+}
+
 static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, int b_cols) {
   std::string mapping_id = "";
   std::string executor_id = "";
@@ -162,6 +166,10 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       N_c = 64;
       M_c = coo->rows();
       K_c = 64;
+
+       if (coo->rows() % 4 != 0) {
+         std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+       }
     }
     else if (b_cols >= 512) {
       mapping_id = "61fee";
@@ -170,12 +178,16 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       N_c = 16;
       M_c = coo->rows();
       K_c = 128;
+
+      if (coo->rows() % 4 != 0) {
+        std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+      }
     }
     else if (b_cols >= 128) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
       tile_config.runtimeSchedule = sop::nmKM;
-      N_c = coo->cols();
+      N_c = round_up(coo->cols(), 6*4);
       M_c = 64;
       K_c = 128;
     }
@@ -183,7 +195,7 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
       tile_config.runtimeSchedule = sop::nmKM;
-      N_c = coo->cols();
+      N_c = round_up(coo->cols(), 6*4);
       M_c = 64;
       K_c = 128;
     }
@@ -195,6 +207,10 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       N_c = 64;
       M_c = coo->rows();
       K_c = 64;
+
+      if (coo->rows() % 4 != 0) {
+        std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+      }
     }
     else if (b_cols >= 512) {
       mapping_id = "61fee";
@@ -203,12 +219,16 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       N_c = 24;
       M_c = coo->rows();
       K_c = 128;
+
+      if (coo->rows() % 4 != 0) {
+        std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+      }
     }
     else if (b_cols >= 128) {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
       tile_config.runtimeSchedule = sop::nmKM;
-      N_c = coo->cols();
+      N_c = round_up(coo->cols(), 6*4);
       M_c = 64;
       K_c = 32;
     }
@@ -216,7 +236,7 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
       tile_config.runtimeSchedule = sop::nmKM;
-      N_c = coo->cols();
+      N_c = round_up(coo->cols(), 6*4);
       M_c = 64;
       K_c = 64;
     }
@@ -240,15 +260,15 @@ extern "C" spnano_matmul_t spnano_allocate_matmul_f32(spnano_coo_t m, int num_th
   sop::MatMul<float>* matmul = nullptr;
   COO<float>* coo = reinterpret_cast<COO<float>*>(m);
 
-#if defined(__x86_64__)
+
   if (cpuinfo_has_x86_avx2() || cpuinfo_has_x86_avx512f()) {
     matmul = create_matmul_avx(coo, num_threads, b_cols);
-#endif
-#ifdef _M_ARM64
-  } else if (cpuinfo_has_arm_neon_v8()) {
+  }
+  else if (cpuinfo_has_arm_neon_v8()) {
     matmul = create_matmul_neon(coo, num_threads, b_cols);
-#endif
-  } else {
+  }
+
+  if (matmul == nullptr) {
     std::cout << "Architecture not yet supported" << std::endl;
     exit(-1);
   }

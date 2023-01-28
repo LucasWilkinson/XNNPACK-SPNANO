@@ -19,7 +19,7 @@
 
 namespace models {
 
-ExecutionPlan FP32SparseMobileNetV3Large(float sparsity, pthreadpool_t threadpool) {
+ExecutionPlan FP32SparseMobileNetV3LargeNano(float sparsity, pthreadpool_t threadpool) {
   alignas(16) static std::array<float, 150528> v0;
   alignas(16) static std::array<float, 200704> v1;
   alignas(16) static std::array<float, 200704> v2;
@@ -610,7 +610,7 @@ ExecutionPlan FP32SparseMobileNetV3Large(float sparsity, pthreadpool_t threadpoo
   xnn_caches caches = { 0 };
   caches.code_cache = &code_cache;
 
-  xnn_params.config_flags &= ~XNN_CONFIG_FLAG_USE_SPNANO;
+  xnn_params.config_flags |= XNN_CONFIG_FLAG_USE_SPNANO;
 
   xnn_operator_t op0 = nullptr;
   status = xnn_create_convolution2d_nchw_f32(
