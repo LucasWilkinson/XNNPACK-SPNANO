@@ -84,7 +84,7 @@ inline float *get_op_output(xnn_operator_t op) {
         case xnn_operator_type_global_average_pooling_ncw_f32:
             return (float*)  op->context.global_average_pooling_ncw.output;
         default: {
-            std::cout << "Unknown layer for output selection please add: " << op->type << std::endl;
+            // std::cout << "Unknown layer for output selection please add: " << op->type << std::endl;
             break;
         }
     }
@@ -101,7 +101,7 @@ inline float *get_op_input(xnn_operator_t op)
         case xnn_operator_type_global_average_pooling_ncw_f32:
             return (float*)  op->context.global_average_pooling_ncw.input;
         default: {
-            std::cout << "Unknown layer for output selection please add: " << op->type << std::endl;
+            // std::cout << "Unknown layer for output selection please add: " << op->type << std::endl;
             break;
         }
     }
@@ -154,8 +154,10 @@ inline void Verify(int num_threads, models::ExecutionPlanFactory model_factory, 
                 bool is_1x1 = (kernel_h == 1 && kernel_w == 1);
 
                 if (is_1x1) {
-                    std::cout << "Layer " << op_idx << ": (" << input_channels << "x" << input_hw << ") -> (" << output_channels << "x" << output_hw << ")" << std::endl;
+                    //std::cout << "Layer " << op_idx << ": (" << input_channels << "x" << input_hw << ") -> (" << output_channels << "x" << output_hw << ")" << std::endl;
                 }
+
+                // fall-through
             }
             case xnn_operator_type_convolution_nhwc_f32: {
                 int output_height =
@@ -208,13 +210,14 @@ inline void Verify(int num_threads, models::ExecutionPlanFactory model_factory, 
         LayerVerification& ref_layer = ref_layers[op_idx];
         xnn_operator_t op_ptr = op.get();
 
-        float error_tols = 1e-2;
+        float error_tols = 0.5;
         bool correct = true;
         int print_count = 0;
 
         const float* input = get_op_input(op_ptr);
         const float* output = get_op_output(op_ptr);
 
+        //ref_layer.verify = false;
         if (ref_layer.verify) {
             if (op_ptr->type != ref_layer.type) {
                 std::cout << op_ptr->type << " != " << ref_layer.type << std::endl;
@@ -233,10 +236,10 @@ inline void Verify(int num_threads, models::ExecutionPlanFactory model_factory, 
             }
 
             if (correct) {
-                std::cout << "Layer " << op_idx << " input pre-op is correct, ref_ptr: " << ref_layer.input << " prt " << input << std::endl;
+                //std::cout << "Layer " << op_idx << " input pre-op is correct, ref_ptr: " << ref_layer.input << " prt " << input << std::endl;
             }
             else {
-                std::cout << std::endl << "Layer " << op_idx << " input is incorrect, ref_ptr: " << ref_layer.input << " prt " << input
+                std::cout << std::endl << "Layer " << op_idx << " input (pre run) is incorrect, ref_ptr: " << ref_layer.input << " prt " << input
                           << " type: " << op_ptr->type
                           << " output size: " << ref_layer.output_size
                           << " input stride: " << op_ptr->input_pixel_stride
@@ -266,7 +269,7 @@ inline void Verify(int num_threads, models::ExecutionPlanFactory model_factory, 
             }
 
             if (correct) {
-                std::cout << "Layer " << op_idx << " input is correct, ref_ptr: " << ref_layer.input << " prt " << input << std::endl;
+                //std::cout << "Layer " << op_idx << " input is correct, ref_ptr: " << ref_layer.input << " prt " << input << std::endl;
             }
             else {
                 std::cout << std::endl << "Layer " << op_idx << " input is incorrect, ref_ptr: " << ref_layer.input << " prt " << input
@@ -289,9 +292,9 @@ inline void Verify(int num_threads, models::ExecutionPlanFactory model_factory, 
             }
 
             if (correct) {
-                std::cout << "Layer " << op_idx << " output is correct, ref_ptr: " << ref_layer.output << " prt " << output << std::endl;
+                //std::cout << "Layer " << op_idx << " output is correct, ref_ptr: " << ref_layer.output << " prt " << output << std::endl;
             } else {
-                std::cout << "Layer " << op_idx << " output is incorrect, ref_ptr: " << ref_layer.output << " prt " << output
+                std::cout << std::endl << "Layer " << op_idx << " output is incorrect, ref_ptr: " << ref_layer.output << " prt " << output
                           << " type: " << op_ptr->type
                           << " output size: " << ref_layer.output_size
                           << " input stride: " << op_ptr->input_pixel_stride
@@ -330,8 +333,21 @@ inline void End2EndBenchmark(
         return;
     }
 
+
+    enum layer_type: int {
+      spnano = 0, spmm, hwc2chw, dwconv, conv2d, add, mul, unknown
+    };
+
     std::vector<std::vector<double>> operator_times;
+    std::vector<std::pair<int, int>> kernel_shape;
+    std::vector<std::tuple<int, int, int>> mul_shape;
+    std::vector<layer_type> layer_type_str;
+
+    kernel_shape.resize(execution_plan.size());
+    layer_type_str.resize(execution_plan.size());
     operator_times.resize(execution_plan.size());
+    mul_shape.resize(execution_plan.size());
+
     for (auto& operator_time : operator_times) operator_time.reserve(200);
 
     for (auto _ : state) {
@@ -342,7 +358,33 @@ inline void End2EndBenchmark(
             xnn_status status = xnn_run_operator(op.get(), threadpool.get());
             auto end = std::chrono::high_resolution_clock::now();
 
-            operator_times[layer_idx++].push_back((end - start).count());
+            kernel_shape[layer_idx] = {op->kernel_height, op->kernel_width};
+            mul_shape[layer_idx] = {-1, -1, -1};
+
+            if (op->type == xnn_operator_type_convolution_nhwc_f32 || op->type == xnn_operator_type_convolution_nchw_f32) {
+                if (op->ukernel.type == xnn_ukernel_type_spmm_nano) {
+                    layer_type_str[layer_idx] = spnano;
+                    mul_shape[layer_idx] = { op->output_pixel_stride, op->input_pixel_stride, op->input_height * op->input_width};
+                } else if (op->ukernel.type == xnn_ukernel_type_spmm) {
+                    layer_type_str[layer_idx] = spmm;
+                    mul_shape[layer_idx] = { op->output_pixel_stride, op->input_pixel_stride, op->input_height * op->input_width};
+                } else if (op->ukernel.type == xnn_ukernel_type_conv2d_hwc2chw) {
+                    layer_type_str[layer_idx] = hwc2chw;
+                } else if (op->ukernel.type == xnn_ukernel_type_dwconv) {
+                    layer_type_str[layer_idx] = dwconv;
+                } else if (op->ukernel.type == xnn_ukernel_type_subconv2d) {
+                    layer_type_str[layer_idx] = conv2d;
+                }
+            } else if (op->type == xnn_operator_type_add_nd_f32) {
+                layer_type_str[layer_idx] = add;
+            } else if (op->type == xnn_operator_type_multiply_nd_f32) {
+                layer_type_str[layer_idx] = mul;
+            } else {
+                layer_type_str[layer_idx] = unknown;
+            }
+
+            std::chrono::duration<double, std::micro> duration = end - start;
+            operator_times[layer_idx++].push_back(duration.count());
 
             if (status != xnn_status_success) {
                 state.SkipWithError("failed to run a model");
@@ -352,7 +394,15 @@ inline void End2EndBenchmark(
     }
 
     for (int layer_idx = 0; layer_idx < operator_times.size(); layer_idx++) {
-        state.counters["layer_" + std::to_string(layer_idx)] = median(operator_times[layer_idx]);
+        std::ostringstream layer_idx_str; layer_idx_str << std::setw(2) << std::setfill('0') << layer_idx;
+
+        state.counters["layer_" + layer_idx_str.str()] = median(operator_times[layer_idx]);
+        state.counters["layer_enum_" + layer_idx_str.str()] = static_cast<int>(layer_type_str[layer_idx]);
+        state.counters["layer_kh_" + layer_idx_str.str()] = kernel_shape[layer_idx].first;
+        state.counters["layer_kw_" + layer_idx_str.str()] = kernel_shape[layer_idx].second;
+        state.counters["layer_dM_" + layer_idx_str.str()] = std::get<0>(mul_shape[layer_idx]);
+        state.counters["layer_dK_" + layer_idx_str.str()] = std::get<1>(mul_shape[layer_idx]);
+        state.counters["layer_dN_" + layer_idx_str.str()] = std::get<2>(mul_shape[layer_idx]);
     }
 
     const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();

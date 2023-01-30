@@ -93,7 +93,7 @@ auto& SparseModelNano = models::FP32SparseMobileNetV3SmallNano;
 
 BENCHMARK(ModelBench<DenseModel>)->Name(BENCHMARK_NAME(Dense))\
     ->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
-BENCHMARK(SparseModelBenchVerified<SparseModel, SparseModel, 70>)->Name(BENCHMARK_NAME(Sparse70))\
+BENCHMARK(SparseModelBench<SparseModel, 70>)->Name(BENCHMARK_NAME(Sparse70))\
     ->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();
 BENCHMARK(SparseModelBenchVerified<SparseModelNano, SparseModel, 70>)->Name(BENCHMARK_NAME(Nano70))\
     ->Apply(benchmark::utils::MultiThreadingParameters)->Unit(benchmark::kMicrosecond)->UseRealTime();

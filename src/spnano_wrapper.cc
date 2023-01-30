@@ -158,87 +158,106 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
   //   "400fa" -> "77f9d", Mr = 8
 
   int N_c = 0, K_c = 0, M_c = 0;
-  if (num_threads == 1) {
-    if (b_cols >= 1024) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x4";
-      tile_config.runtimeSchedule = sop::nmKN;
-      N_c = 64;
-      M_c = coo->rows();
-      K_c = 64;
+  if (b_cols >= 4*1024) {
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x6";
+    tile_config.runtimeSchedule = sop::nmKN;
+    N_c = 36*6*4;
+    M_c = coo->rows();
+    K_c = 64;
 
-       if (coo->rows() % 4 != 0) {
-         std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
-       }
-    }
-    else if (b_cols >= 512) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x4";
-      tile_config.runtimeSchedule = sop::nmKN;
-      N_c = 16;
-      M_c = coo->rows();
-      K_c = 128;
-
-      if (coo->rows() % 4 != 0) {
+    if (coo->rows() % 4 != 0) {
         std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
-      }
     }
-    else if (b_cols >= 128) {
+  }
+  else if (b_cols >= 1024) {
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x6";
+    tile_config.runtimeSchedule = sop::nmKN;
+    N_c = 12*6*4;
+    M_c = coo->rows();
+    K_c = 64;
+
+    if (coo->rows() % 4 != 0) {
+      std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+    }
+  }
+  else if (b_cols >= 512) {
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x6";
+    tile_config.runtimeSchedule = sop::nmKN;
+    N_c = 24;
+    M_c = coo->rows();
+    K_c = 128;
+
+    if (coo->rows() % 4 != 0) {
+      std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
+    }
+  }
+  else if (b_cols >= 128) {
+    mapping_id = "61fee";
+    executor_id = "c22a5_NEON_128_4x6";
+    tile_config.runtimeSchedule = sop::nmKM;
+    N_c = round_up(b_cols, 6*4);
+    M_c = 64;
+    K_c = 128;
+  }
+  else {
+    if (coo->rows() % 8 == 0) {
+      mapping_id = "400fa";
+      executor_id = "77f9d_NEON_128_8x3";
+      tile_config.runtimeSchedule = sop::nmKM;
+      N_c = round_up(b_cols, 3*4);
+      M_c = 64;
+      K_c = 128;
+    } else {
       mapping_id = "61fee";
       executor_id = "c22a5_NEON_128_4x6";
+      //executor_id = "77f9d_NEON_128_8x3";
       tile_config.runtimeSchedule = sop::nmKM;
-      N_c = round_up(coo->cols(), 6*4);
+      N_c = round_up(b_cols, 6*4);
       M_c = 64;
       K_c = 128;
     }
-    else {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x6";
-      tile_config.runtimeSchedule = sop::nmKM;
-      N_c = round_up(coo->cols(), 6*4);
-      M_c = 64;
-      K_c = 128;
-    }
+  }
+
+  using KernelDesc = sop::KD_PIFloat;
+  auto executor_factory = sop::ExecutorFactory<KernelDesc>::get_factory(executor_id);
+
+  int M_r = executor_factory->M_r;
+  int N_r = executor_factory->N_r;
+
+  // Apply constraints
+  if (tile_config.runtimeSchedule == sop::nmKM) {
+    N_c = round_up(b_cols, executor_factory->N_r); // Multiple of
   } else {
-    if (b_cols >= 1024) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x4";
-      tile_config.runtimeSchedule = sop::nmKN;
-      N_c = 64;
-      M_c = coo->rows();
-      K_c = 64;
+    M_c = coo->rows();
+  }
 
-      if (coo->rows() % 4 != 0) {
-        std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
-      }
-    }
-    else if (b_cols >= 512) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x6";
-      tile_config.runtimeSchedule = sop::nmKN;
-      N_c = 24;
-      M_c = coo->rows();
-      K_c = 128;
+  // Balance K_c
+//  int K_c_tasks = ceil_div(coo->cols(), K_c);
+//  K_c = std::ceil((double) coo->cols() / K_c_tasks);
 
-      if (coo->rows() % 4 != 0) {
-        std::cerr << __FILE__ << ": " << __LINE__ << "Error: Rows must be divisible by 4" << std::endl;
-      }
+  if (num_threads > 1) {
+    // Increase parallelism and set constraints
+    if (tile_config.runtimeSchedule == sop::nmKM)
+    {
+      int M_c_par = ceil_div(coo->rows(), num_threads);
+      M_c = std::min(round_up(M_c_par, M_r), M_c);
+
+      // balance
+      int num_tasks = round_up(ceil_div(coo->rows(), M_c), num_threads);
+      M_c = round_up(ceil_div(coo->rows(), num_tasks), M_r);
     }
-    else if (b_cols >= 128) {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x6";
-      tile_config.runtimeSchedule = sop::nmKM;
-      N_c = round_up(coo->cols(), 6*4);
-      M_c = 64;
-      K_c = 32;
-    }
-    else {
-      mapping_id = "61fee";
-      executor_id = "c22a5_NEON_128_4x6";
-      tile_config.runtimeSchedule = sop::nmKM;
-      N_c = round_up(coo->cols(), 6*4);
-      M_c = 64;
-      K_c = 64;
+    else if (tile_config.runtimeSchedule == sop::nmKN)
+    {
+      // N_c with sufficient parallelism
+      int N_c_par = ceil_div(b_cols, num_threads);
+      N_c = std::min(round_up(N_c_par, N_r), N_c);
+
+      // balance
+      int num_tasks = round_up(ceil_div(b_cols, N_c), num_threads);
+      N_c = round_up(ceil_div(b_cols, num_tasks), N_r);
     }
   }
 
@@ -247,7 +266,9 @@ static sop::MatMul<float>* create_matmul_neon(COO<float>* coo, int num_threads, 
   tile_config.K_c = K_c;
   tile_config.tiling_strategy = sop::MANUAL_TILING;
 
-  matmul = new sop::MatMulSpecialized<sop::KD_PIFloat>(
+  ERROR_AND_EXIT_IF(tile_config.M_c % M_r, "tile_config.M_c % M_r");
+
+  matmul = new sop::MatMulSpecialized<KernelDesc>(
     coo, b_cols, tile_config, num_threads, executor_id, mapping_id
   );
 

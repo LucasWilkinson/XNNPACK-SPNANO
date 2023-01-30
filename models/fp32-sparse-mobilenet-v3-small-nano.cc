@@ -1187,7 +1187,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     240 /* output pixel stride */,
     w142.data(), w143.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op34);
   if (status != xnn_status_success) {
@@ -1362,7 +1362,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     120 /* output pixel stride */,
     w152.data(), w153.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op44);
   if (status != xnn_status_success) {
@@ -1526,7 +1526,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     144 /* output pixel stride */,
     w162.data(), w163.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op53);
   if (status != xnn_status_success) {
@@ -1701,7 +1701,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     288 /* output pixel stride */,
     w172.data(), w173.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op63);
   if (status != xnn_status_success) {
@@ -1842,7 +1842,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     96 /* output pixel stride */,
     w180.data(), w181.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op71);
   if (status != xnn_status_success) {
@@ -2006,7 +2006,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     96 /* output pixel stride */,
     w190.data(), w191.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op80);
   if (status != xnn_status_success) {
@@ -2181,7 +2181,7 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     96 /* output pixel stride */,
     w200.data(), w201.data(),
     -std::numeric_limits<float>::infinity() /* output min */, std::numeric_limits<float>::infinity() /* output max */,
-    XNN_FLAG_DISABLE_SPNANO /* flags */,
+    0 /* flags */,
     &caches,
     &op90);
   if (status != xnn_status_success) {
@@ -2575,8 +2575,6 @@ ExecutionPlan FP32SparseMobileNetV3SmallNano(float sparsity, pthreadpool_t threa
     std::cerr << "failed to setup operation #23" << std::endl;
     return ExecutionPlan();
   }
-
-  std::cout << " input: " <<  v24.data() << " output: " << v25.data() << std::endl;
 
   status = xnn_setup_convolution2d_nchw_f32(
     op24,
